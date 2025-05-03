@@ -19,8 +19,7 @@ const io = new Server(server, {
 app.use(cors());
 app.get('/', (req, res) => res.send('🚀 API está corriendo'));
 
-// Conexión a MongoDB
-mongoose.connect('mongodb+srv://sa:Eduardo25@notifinance.zp3mm.mongodb.net/NT?retryWrites=true&w=majority', {
+mongoose.connect(process.env.CONNECTION_STRING, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => {
