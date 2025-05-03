@@ -50,6 +50,7 @@ io.on('connection', (socket) => {
           socket.emit('alertUpdated', {
             alertId: alert._id,
             isActive: alert.isActive,
+            isFulfilled: alert.isFulfilled,
             updatedAt: alert.updatedAt
           });
         }
