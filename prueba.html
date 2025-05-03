@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Client</title>
+    <!-- Asegúrate de cargar Socket.IO -->
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h1>¡Conexión WebSocket!</h1>
+    
+    <!-- Aquí se imprimirá la alerta que recibe -->
+    <div id="alert-container"></div>
+
+    <script>
+      // Conectar al WebSocket en el servidor
+      const socket = io('http://localhost:3000');
+      
+      // El ID de usuario proporcionado
+      const userId = '68124c78df71c23cfea12e7c'; // El ID real del usuario
+
+      // Suscribirse a las alertas del usuario
+      socket.emit('subscribeAlerts', userId);
+
+      // Escuchar las actualizaciones de las alertas
+      socket.on('alertUpdated', (data) => {
+        // Mostrar los datos recibidos en el contenedor
+        console.log('Alerta actualizada:', data);
+
+        // Actualizar el contenido de la página HTML con los datos recibidos
+        const alertContainer = document.getElementById('alert-container');
+        alertContainer.innerHTML = `
+          <h2>Alerta actualizada</h2>
+          <p><strong>ID de la alerta:</strong> ${data.alertId}</p>
+          <p><strong>Estado activado:</strong> ${data.isActive ? 'Sí' : 'No'}</p>
+          <p><strong>Última actualización:</strong> ${new Date(data.updatedAt).toLocaleString()}</p>
+        `;
+      });
+    </script>
+  </body>
+</html>
