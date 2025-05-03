@@ -17,6 +17,12 @@ const io = new Server(server, {
 });
 
 app.use(cors());
+
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'API está corriendo', timestamp: new Date() });
+});
+
+
 app.get('/', (req, res) => res.send('🚀 API está corriendo'));
 
 mongoose.connect(process.env.CONNECTION_STRING, {
