@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { Alert } from './models/alert.model.js';
+import { User } from './models/userModel.js'; 
 
 dotenv.config();
 
@@ -22,50 +22,57 @@ app.get('/', (req, res) => {
   res.json({ status: 'OK', message: 'API está corriendo', timestamp: new Date() });
 });
 
+mongoose.connect(process.env.CONNECTION_STRING)
+  .then(() => {
+    console.log('✅ Conectado a MongoDB Atlas');
+  })
+  .catch(err => {
+    console.error('❌ Error al conectar a MongoDB:', err);
+  });
 
-app.get('/', (req, res) => res.send('🚀 API está corriendo'));
-
-mongoose.connect(process.env.CONNECTION_STRING, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('✅ Conectado a MongoDB Atlas');
-}).catch(err => {
-  console.error('❌ Error al conectar a MongoDB:', err);
-});
-
-// WebSocket
+// WebSocket: Escuchar cambios en campos "role" y "password" de usuarios
 io.on('connection', (socket) => {
   console.log('🔌 Cliente conectado');
 
-  socket.on('subscribeAlerts', async (userId) => {
-    console.log(`👤 Cliente suscrito a alertas del usuario: ${userId}`);
+  socket.on('subscribeUserChanges', async (userId) => {
+    console.log(`👤 Cliente suscrito a cambios del usuario: ${userId}`);
 
-    const changeStream = mongoose.connection.collection('alerts').watch();
+    const pipeline = [
+      {
+        $match: {
+          'documentKey._id': new mongoose.Types.ObjectId(userId),
+          operationType: 'update'
+        }
+      }
+    ];
+
+    const changeStream = mongoose.connection.collection('users').watch(pipeline);
 
     changeStream.on('change', async (change) => {
-      if (change.operationType === 'update') {
-        const alert = await Alert.findById(change.documentKey._id).lean();
-        if (alert && String(alert.userId) === userId) {
-          socket.emit('alertUpdated', {
-            alertId: alert._id,
-            isActive: alert.isActive,
-            isFulfilled: alert.isFulfilled,
-            updatedAt: alert.updatedAt
-          });
-        }
+      const updatedFields = Object.keys(change.updateDescription.updatedFields);
+      const hasRoleChanged = updatedFields.includes('role');
+      const hasPasswordChanged = updatedFields.includes('password');
+
+      if (hasRoleChanged || hasPasswordChanged) {
+        const user = await User.findById(change.documentKey._id).lean();
+
+        socket.emit('userUpdated', {
+          userId: user._id,
+          ...(hasRoleChanged && { role: user.role }),
+          ...(hasPasswordChanged && { passwordChanged: true }) // No enviamos la contraseña
+        });
       }
     });
 
     socket.on('disconnect', () => {
-      console.log('❌ Cliente desconectado');
+      console.log('❌ Cliente desconectado de cambios de usuario');
       changeStream.close();
     });
   });
 });
 
 // Inicia el servidor
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3031;
 server.listen(PORT, () => {
   console.log(`🚀 Servidor WebSocket escuchando en http://localhost:${PORT}`);
 });
