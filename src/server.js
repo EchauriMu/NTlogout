@@ -30,7 +30,7 @@ mongoose.connect(process.env.CONNECTION_STRING)
     console.error('❌ Error al conectar a MongoDB:', err);
   });
 
-// WebSocket: Escuchar cambios en campos "role" y "password" de usuarios
+// WebSocket: Escuchar cambios en campos "role", "password", "plan" y "isActive" de usuarios
 io.on('connection', (socket) => {
   console.log('🔌 Cliente conectado');
 
@@ -52,14 +52,18 @@ io.on('connection', (socket) => {
       const updatedFields = Object.keys(change.updateDescription.updatedFields);
       const hasRoleChanged = updatedFields.includes('role');
       const hasPasswordChanged = updatedFields.includes('password');
+      const hasPlanChanged = updatedFields.includes('plan'); // Detecta cambios en el campo "plan"
+      const hasIsActiveChanged = updatedFields.includes('isActive'); // Detecta cambios en el campo "isActive"
 
-      if (hasRoleChanged || hasPasswordChanged) {
+      if (hasRoleChanged || hasPasswordChanged || hasPlanChanged || hasIsActiveChanged) {
         const user = await User.findById(change.documentKey._id).lean();
 
         socket.emit('userUpdated', {
           userId: user._id,
           ...(hasRoleChanged && { role: user.role }),
-          ...(hasPasswordChanged && { passwordChanged: true }) // No enviamos la contraseña
+          ...(hasPasswordChanged && { passwordChanged: true }), // No enviamos la contraseña
+          ...(hasPlanChanged && { plan: user.plan }), // Incluye el campo "plan" si cambió
+          ...(hasIsActiveChanged && { isActive: user.isActive }) // Incluye el campo "isActive" si cambió
         });
       }
     });
