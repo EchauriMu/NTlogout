@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
       {
         $match: {
           'documentKey._id': new mongoose.Types.ObjectId(userId),
-          operationType: 'update'
+          operationType: { $in: ['update', 'delete'] }
         }
       }
     ];
@@ -49,21 +49,36 @@ io.on('connection', (socket) => {
     const changeStream = mongoose.connection.collection('users').watch(pipeline);
 
     changeStream.on('change', async (change) => {
+      if (change.operationType === 'delete') {
+        socket.emit('userDeleted', {
+          userId: change.documentKey._id
+        });
+        return;
+      }
+
       const updatedFields = Object.keys(change.updateDescription.updatedFields);
       const hasRoleChanged = updatedFields.includes('role');
       const hasPasswordChanged = updatedFields.includes('password');
-      const hasPlanChanged = updatedFields.includes('plan'); // Detecta cambios en el campo "plan"
-      const hasIsActiveChanged = updatedFields.includes('isActive'); // Detecta cambios en el campo "isActive"
+      const hasPlanChanged = updatedFields.includes('plan');
+      const hasIsActiveChanged = updatedFields.includes('isActive');
+      const hasEmailChanged = updatedFields.includes('email');
 
-      if (hasRoleChanged || hasPasswordChanged || hasPlanChanged || hasIsActiveChanged) {
+      if (
+        hasRoleChanged ||
+        hasPasswordChanged ||
+        hasPlanChanged ||
+        hasIsActiveChanged ||
+        hasEmailChanged
+      ) {
         const user = await User.findById(change.documentKey._id).lean();
 
         socket.emit('userUpdated', {
           userId: user._id,
           ...(hasRoleChanged && { role: user.role }),
-          ...(hasPasswordChanged && { passwordChanged: true }), // No enviamos la contraseña
-          ...(hasPlanChanged && { plan: user.plan }), // Incluye el campo "plan" si cambió
-          ...(hasIsActiveChanged && { isActive: user.isActive }) // Incluye el campo "isActive" si cambió
+          ...(hasPasswordChanged && { passwordChanged: true }),
+          ...(hasPlanChanged && { plan: user.plan }),
+          ...(hasIsActiveChanged && { isActive: user.isActive }),
+          ...(hasEmailChanged && { email: user.email })
         });
       }
     });
